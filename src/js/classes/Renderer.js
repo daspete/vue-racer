@@ -1,4 +1,5 @@
 import settings from '../config/settings'
+import Util from './helpers/Util'
 
 class Renderer {
     constructor(config){
@@ -130,6 +131,48 @@ class Renderer {
         }
 
         this.AddFog(0, startPos.y, width, endPos.y - startPos.y, fog, colors.fog)
+    }
+
+    DrawPlayer(width, height, resolution, roadWidth, sprites, speedPercent, scale, destX, destY, steer, updown){
+        let bounciness = 1.5 * Math.random() * speedPercent * resolution * Util.randomChoice([-1, 1])
+        let sprite;
+        
+        if(steer < 0){
+            sprite = sprites.left
+        }else if(steer > 0){
+            sprite = sprites.right
+        }else{
+            sprite = sprites.straight
+        }
+
+        this.DrawSprite(
+            width, 
+            height,
+            resolution,
+            roadWidth,
+            sprite,
+            scale,
+            destX,
+            destY,// + bounciness,
+            -0.5,
+            -1
+        )
+    }
+
+    DrawSprite(width, height, resolution, roadWidth, sprite, scale, destX, destY, offsetX, offsetY, clipY){
+        let spriteScale = 0.2 * 1 / 180;
+
+        let destWidth = (sprite.width * scale * width * 0.5) * (spriteScale * roadWidth)
+        let destHeight = (sprite.height * scale * height * 0.66) * (spriteScale * roadWidth)
+
+        destX += destWidth * (offsetX || 0)
+        destY += destHeight * (offsetY || 0)
+
+        let clipHeight = clipY ? Math.max(0, destY + destHeight - clipY) : 0
+
+        if(clipHeight < destHeight){
+            this.ctx.drawImage(sprite, 0, 0, sprite.width, sprite.height - (sprite.height * clipHeight / destHeight), destX, destY, destWidth, destHeight - clipHeight)
+        }
     }
 
     DrawBackground(){

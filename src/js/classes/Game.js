@@ -1,6 +1,9 @@
 import settings from '../config/settings'
 import Util from './helpers/Util'
 import Input from './Input'
+import SpriteLoader from './SpriteLoader'
+
+import PlayerSprites from '../../sprites/player'
 
 class Game {
     constructor(config){
@@ -12,6 +15,8 @@ class Game {
         
 
         this.input = new Input()
+
+        this.loader = new SpriteLoader()
 
         this.camera = {
             depth: 0,
@@ -44,7 +49,15 @@ class Game {
         this.roadWidth = 2000
     }
 
-    Start(){
+    async LoadSprites(){
+        this.sprites = {
+            player: await this.loader.Load(PlayerSprites)
+        }
+    }
+
+    async Start(){
+        await this.LoadSprites()
+
         console.log('START GAME')
         this.Reset()
         this.input.Start()
@@ -201,17 +214,38 @@ class Game {
             maxY = segment.p1.screen.y
         }
 
-        // try {
-        //     let _segmentId = this.track.FindSegment(this.player.trackPosition).index
-        //     let _segment = this.track.segments[_segmentId + 20]
-        //     this.renderer.DrawFog(_segment)
-        // }catch(e){
-        //     console.log(e)
-        // }
-        
+
+
+
+        for(n = this.camera.distance - 1; n > 0; n--){
+            segment = this.track.segments[(baseSegment.index + n) % this.track.segments.length]
+
+            // TODO: render cars and environment sprites
+
+            if(segment == playerSegment){
+                this.renderer.DrawPlayer(
+                    settings.width,
+                    settings.height,
+                    this.camera.resolution,
+                    this.roadWidth,
+                    this.sprites.player,
+                    this.player.speed / this.maxSpeed,
+                    this.camera.depth / this.player.position.z,
+                    settings.width * 0.5,
+                    settings.height * 0.5 - (
+                        this.camera.depth / this.player.position.z * 
+                        Util.interpolate(
+                            playerSegment.p1.camera.y, 
+                            playerSegment.p2.camera.y, 
+                            playerPercent
+                    ) * settings.height * 0.5),
+                    this.player.speed * (this.input.left ? -1 : this.input.right ? 1 : 0),
+                    playerSegment.p2.world.y - playerSegment.p1.world.y
+                )
+            }
+        }
     }
 
-    
 
     Reset(){
         this.player.position.z = this.camera.depth * this.camera.height
