@@ -13,7 +13,7 @@ class SpriteLoader {
     }
 
     LoadImage(base64EncodedImageData){
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             let image = new Image()
 
             image.onload = () => { resolve(image) }

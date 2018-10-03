@@ -3,7 +3,7 @@ import Util from './helpers/Util'
 import Input from './Input'
 import SpriteLoader from './SpriteLoader'
 
-import PlayerSprites from '../../sprites/player'
+import sprites from '../../sprites/spritesheet.json'
 
 class Game {
     constructor(config){
@@ -12,10 +12,8 @@ class Game {
         this.renderer = config.renderer
         this.canvas = this.renderer.canvas
         this.ctx = this.renderer.ctx
-        
 
         this.input = new Input()
-
         this.loader = new SpriteLoader()
 
         this.camera = {
@@ -23,7 +21,7 @@ class Game {
             height: 1000,
             distance: 300,
             fov: 100,
-            resolution: 1//settings.height / 480
+            resolution: 1
         }
         this.camera.depth = 1 / Math.tan((this.camera.fov / 2) * Math.PI / 180)
 
@@ -47,11 +45,15 @@ class Game {
         this.centrifugalForce = 0.3
         this.fogDensity = 5
         this.roadWidth = 2000
+
+        this.maxCars = 100
+
+        this.cars = []
     }
 
     async LoadSprites(){
         this.sprites = {
-            player: await this.loader.Load(PlayerSprites)
+            player: await this.loader.Load(sprites.player)
         }
     }
 
@@ -102,8 +104,11 @@ class Game {
         let playerSegment = this.track.FindSegment(this.player.trackPosition + this.player.position.z)
         let speedPercent = this.player.speed / this.maxSpeed
         let dx = dt * 2 * speedPercent
+        let playerWidth = 200 * (0.2 * 1 / 180)
 
         let startPos = this.player.trackPosition
+
+        this.UpdateCars(dt, playerSegment, playerWidth)
 
         this.player.trackPosition = Util.increase(this.player.trackPosition, dt * this.player.speed, this.trackLength)
 
@@ -141,6 +146,88 @@ class Game {
         }
     }
 
+    UpdateCars(dt, playerSegment, playerW){
+        let car;
+        let oldSegment;
+        let newSegment;
+
+        for(let n = 0; n < this.cars.length; n++){
+            car = this.cars[n]
+
+            oldSegment = this.track.FindSegment(car.z)
+            
+            car.dir = this.UpdateCarOffset(car, n, oldSegment, playerSegment, playerW)
+            car.offset += car.dir
+            car.z = Util.increase(car.z, dt * car.speed, this.trackLength)
+            car.percent = Util.percentRemaining(car.z, this.track.segmentLength)
+
+            newSegment = this.track.FindSegment(car.z)
+            
+            if(oldSegment != newSegment){
+                let index = oldSegment.cars.indexOf(car)
+                oldSegment.cars.splice(index, 1)
+                newSegment.cars.push(car)
+            }
+        }
+    }
+
+    UpdateCarOffset(car, index, carSegment, playerSegment, playerW){
+        let lookAhead = 20
+        let carWidth = 200 * (0.2 * 1 / 180)
+        let dir;
+        let i;
+        let j;
+        let otherCar;
+        let otherCarWidth;
+        let segment;
+
+        // don't do anything when the car is invisible
+        if(carSegment.index - playerSegment.index > this.camera.distance) return 0
+
+        for(i = 0; i < lookAhead; i++){
+            segment = this.track.segments[(carSegment.index + i) % this.track.segments.length]
+
+            if(segment === playerSegment && car.speed > this.player.speed && Util.overlap(this.player.position.x, playerW, car.offset, carWidth, 1.2)){
+                if(this.player.position.x > 0.5){
+                    dir = -1
+                    
+                }else if(this.player.position.x < -0.5){
+                    dir = 1
+                }else {
+                    dir = car.offset > this.player.position.x ? 1 : -1
+                }
+
+                return dir * 1 / i * (car.speed - this.player.speed) / this.maxSpeed
+            }
+
+            for(j = 0; j < segment.cars.length; j++){
+                otherCar = segment.cars[j]
+                otherCarWidth = playerW
+
+                if(car.speed > otherCar.speed && Util.overlap(car.offset, carWidth, otherCar.offset, otherCarWidth, 1.2)){
+                    if(otherCar.offset > 0.5){
+                        dir = -1
+                    }else if(otherCar.offset < -0.5){
+                        dir = 1
+                    }else {
+                        dir = car.offset > otherCar.offset ? 1 : -1
+                    }
+
+    
+                    return dir * 1 / i * (car.speed - otherCar.speed) / this.maxSpeed
+                }
+            }
+        }
+
+        if(car.offset < -0.9){
+            return 0.1
+        }else if(car.offset > 0.9){
+            return -0.1
+        }
+
+        return 0
+    }
+
     Render(){
         let baseSegment = this.track.FindSegment(this.player.trackPosition)
         let basePercent = Util.percentRemaining(this.player.trackPosition, this.track.segmentLength)
@@ -157,7 +244,7 @@ class Game {
         this.renderer.DrawBackground()
         
 
-        let n, segment
+        let i, n, segment, car, sprite, spriteScale, spriteX, spriteY, currentCarSprite
 
         for(n = 0; n < this.camera.distance; n++){
             segment = this.track.segments[(baseSegment.index + n) % this.track.segments.length]
@@ -222,6 +309,23 @@ class Game {
 
             // TODO: render cars and environment sprites
 
+
+            for(i = 0; i < segment.cars.length; i++){
+                car = segment.cars[i]
+                sprite = car.sprite
+
+                spriteScale = Util.interpolate(segment.p1.screen.scale, segment.p2.screen.scale, car.percent);
+                spriteX = Util.interpolate(segment.p1.screen.x, segment.p2.screen.x, car.percent) + (spriteScale * car.offset * this.roadWidth * settings.width / 2);
+                spriteY = Util.interpolate(segment.p1.screen.y, segment.p2.screen.y, car.percent);
+
+                currentCarSprite = car.dir < 0 ? car.sprite.left : car.dir > 0 ? car.sprite.right : car.sprite.straight;
+                
+
+                this.renderer.DrawSprite(settings.width, settings.height, this.camera.resolution, this.roadWidth, currentCarSprite, spriteScale, spriteX, spriteY, -0.5, -1, segment.clip);
+            }
+
+
+
             if(segment == playerSegment){
                 this.renderer.DrawPlayer(
                     settings.width,
@@ -254,6 +358,8 @@ class Game {
         this.renderer.Clear()
 
         this.BuildTrack()
+
+        this.ResetCars()
     }
 
     BuildTrack(){
@@ -284,6 +390,35 @@ class Game {
         }
 
         this.trackLength = this.track.segments.length * this.track.segmentLength
+    }
+
+    ResetCars(){
+        this.cars = []
+
+        let offset;
+        let segment;
+        let car;
+        let z;
+        let sprite;
+        let speed;
+
+        for(let n = 0; n < this.maxCars; n++){
+            offset = Math.random() * Util.randomChoice([-0.8, 0.8])
+            z = Math.floor(Math.random() * this.track.segments.length) * this.track.segmentLength
+            sprite = this.sprites.player
+            speed = this.maxSpeed * 0.7
+            car = {
+                offset,
+                z,
+                sprite,
+                speed,
+                dir: 0
+            }
+
+            segment = this.track.FindSegment(car.z)
+            segment.cars.push(car)
+            this.cars.push(car)
+        }
     }
 }
 
