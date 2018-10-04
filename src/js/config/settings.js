@@ -57,5 +57,9 @@ export default {
             medium: 4,
             head: 6
         }
+    },
+
+    sprites: {
+        scale: 0.2 * 1 / 180
     }
 }

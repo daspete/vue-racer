@@ -41,6 +41,10 @@ const Util = {
         return Math.round(Util.interpolate(min, max, Math.random()))
     },
 
+    randomFloat(min, max){
+        return Util.interpolate(min, max, Math.random())
+    },
+
     randomChoice(options){
         return options[Util.randomInt(0, options.length - 1)]
     },

@@ -2,6 +2,10 @@
     <div class="game-container" :style="gameContainerStyles">
         <div class="game" :style="gameStyles">
             <canvas ref="gamecanvas"></canvas>
+            <div class="game-over" v-if="stats.gameOver">
+                <div class="game-over__text">GAME OVER</div>
+                <button class="game-over__button" v-on:click="Reload">TRY AGAIN</button>
+            </div>
         </div>
         <div class="speedometer">
             <div class="speedometer__needle" :style="speedometerStyles"></div>
@@ -10,6 +14,9 @@
         <div class="track-progress">
             <div class="track-progress__line" :style="trackProgressStyles"></div>
         </div>
+
+        
+        
         <!-- {{ parseInt(stats.position) }} / {{ parseInt(stats.trackLength) }} -->
     </div>
     
@@ -25,7 +32,41 @@ body {
     margin: 50px auto;
     position: relative;
 }
+
+.game-over {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,0.7);
+    z-index: 2;
+    text-align: center;
+
+    &__text {
+        text-align: center;
+        font-size: 90px;
+        color: red;
+        font-weight: 700;
+        margin-top: 150px;
+    }
+
+    &__button {
+        margin-top: 50px;
+        text-align: center;
+        padding: 40px 110px;
+        font-size: 60px;
+        font-weight: 700;
+        background-color: #240;
+        color: #790;
+        border: 0;
+        outline: none !important;
+        cursor: pointer;
+    }
+}
+
 .game {
+    position: relative;
     margin: 0 auto;
     background-color: black;
     box-shadow: 0 0 30px rgba(0,0,0,0.5);
@@ -96,7 +137,8 @@ export default {
                 lapTime: 0,
                 bestLapTime: 0,
                 position: 0,
-                trackLength: 0 
+                trackLength: 0,
+                gameOver: false
             }
         }
     },
@@ -163,6 +205,12 @@ export default {
         
         speed(){
             return parseInt(this.stats.speed * 0.02)
+        }
+    },
+
+    methods: {
+        Reload(){
+            location.reload()
         }
     }
 

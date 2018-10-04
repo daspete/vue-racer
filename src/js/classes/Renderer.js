@@ -160,7 +160,7 @@ class Renderer {
     }
 
     DrawSprite(width, height, resolution, roadWidth, sprite, scale, destX, destY, offsetX, offsetY, clipY){
-        let spriteScale = 0.2 * 1 / 180;
+        let spriteScale = settings.sprites.scale * resolution;
 
         let destWidth = (sprite.width * scale * width * 0.5) * (spriteScale * roadWidth)
         let destHeight = (sprite.height * scale * height * 0.66) * (spriteScale * roadWidth)

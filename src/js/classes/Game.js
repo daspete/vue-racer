@@ -46,14 +46,17 @@ class Game {
         this.fogDensity = 5
         this.roadWidth = 2000
 
-        this.maxCars = 100
+        this.maxCars = 200
+
+        this.gameOver = false
 
         this.cars = []
     }
 
     async LoadSprites(){
         this.sprites = {
-            player: await this.loader.Load(sprites.player)
+            player: await this.loader.Load(sprites.player),
+            trees: await this.loader.Load(sprites.trees)
         }
     }
 
@@ -98,13 +101,18 @@ class Game {
         this.stats.position = this.player.trackPosition
         this.stats.trackLength = this.trackLength
         this.stats.maxSpeed = this.maxSpeed
+        this.stats.gameOver = this.gameOver
     }
 
     Update(dt){
+        if(this.gameOver == true){
+            this.GameOverUpdate(dt)
+            return;
+        }
         let playerSegment = this.track.FindSegment(this.player.trackPosition + this.player.position.z)
         let speedPercent = this.player.speed / this.maxSpeed
         let dx = dt * 2 * speedPercent
-        let playerWidth = 200 * (0.2 * 1 / 180)
+        let playerWidth = 250 * settings.sprites.scale
 
         let startPos = this.player.trackPosition
 
@@ -136,13 +144,44 @@ class Game {
             // TODO: COLLISION DETECTION WITH LANDSCAPE
         }
 
-        // TODO: COLLISION DETECTION WITH CARS
+        this.DetectCollisionsWithCars(playerSegment, playerWidth);
 
         this.player.position.x = Util.limit(this.player.position.x, -3, 3)
         this.player.speed = Util.limit(this.player.speed, 0, this.maxSpeed)
 
         if(this.player.trackPosition > this.player.position.z){
             // TODO: TIME TRACKING
+        }
+    }
+
+    GameOverUpdate(dt){
+        this.player.speed = 0;
+        let playerSegment = this.track.FindSegment(this.player.trackPosition + this.player.position.z)
+        let speedPercent = this.player.speed / this.maxSpeed
+        let dx = dt * 2 * speedPercent
+        let playerWidth = 250 * settings.sprites.scale
+
+        let startPos = this.player.trackPosition
+
+        this.UpdateCars(dt, playerSegment, playerWidth)
+    }
+
+    DetectCollisionsWithCars(playerSegment, playerW){
+        let n;
+        let car;
+
+        for(let n = 0; n < playerSegment.cars.length; n++){
+            car = playerSegment.cars[n]
+
+            if(this.player.speed > car.speed){
+                if(Util.overlap(this.player.position.x, playerW, car.offset, playerW, 0.6)){
+                    this.gameOver = true;
+
+                    this.player.speed = car.speed * (car.speed / this.player.speed);
+                    this.player.trackPosition = Util.increase(car.z, -this.player.position.z, this.trackLength)
+                    break;
+                }
+            }
         }
     }
 
@@ -173,7 +212,7 @@ class Game {
 
     UpdateCarOffset(car, index, carSegment, playerSegment, playerW){
         let lookAhead = 20
-        let carWidth = 200 * (0.2 * 1 / 180)
+        let carWidth = 200 * settings.sprites.scale
         let dir;
         let i;
         let j;
@@ -307,9 +346,17 @@ class Game {
         for(n = this.camera.distance - 1; n > 0; n--){
             segment = this.track.segments[(baseSegment.index + n) % this.track.segments.length]
 
-            // TODO: render cars and environment sprites
+            // trees
+            for(i = 0; i < segment.sprites.length; i++){
+                sprite = segment.sprites[i];
+                spriteScale = segment.p1.screen.scale * 1.5;
+                spriteX = segment.p1.screen.x + (spriteScale * sprite.offset * this.roadWidth * settings.width / 2);
+                spriteX += sprite.offsetX;
+                spriteY = segment.p1.screen.y;
+                this.renderer.DrawSprite(settings.width, settings.height, 2, this.roadWidth, sprite.source, spriteScale, spriteX, spriteY, (sprite.offset < 0 ? -1 : 0), -1, segment.clip)
+            }
 
-
+            // cars
             for(i = 0; i < segment.cars.length; i++){
                 car = segment.cars[i]
                 sprite = car.sprite
@@ -319,12 +366,9 @@ class Game {
                 spriteY = Util.interpolate(segment.p1.screen.y, segment.p2.screen.y, car.percent);
 
                 currentCarSprite = car.dir < 0 ? car.sprite.left : car.dir > 0 ? car.sprite.right : car.sprite.straight;
-                
 
                 this.renderer.DrawSprite(settings.width, settings.height, this.camera.resolution, this.roadWidth, currentCarSprite, spriteScale, spriteX, spriteY, -0.5, -1, segment.clip);
             }
-
-
 
             if(segment == playerSegment){
                 this.renderer.DrawPlayer(
@@ -360,6 +404,7 @@ class Game {
         this.BuildTrack()
 
         this.ResetCars()
+        this.ResetSprites()
     }
 
     BuildTrack(){
@@ -392,6 +437,28 @@ class Game {
         this.trackLength = this.track.segments.length * this.track.segmentLength
     }
 
+    ResetSprites(){
+        let n;
+        let i;
+        let sprite;
+        let offset;
+        let offsetX;
+        let side;
+
+
+        let gap = 8;
+
+
+        for(n = 2; n < this.track.segments.length - gap; n += gap * 0.5){
+            side = Util.randomChoice([1, -1])
+
+            offsetX = side > 0 ? Util.randomFloat(-40, 5) : Util.randomFloat(-5, 40)
+
+
+            this.track.AddSprite(n + Util.randomInt(0, gap * 0.5), this.sprites.trees.tree1, -side, offsetX)
+        }
+    }
+
     ResetCars(){
         this.cars = []
 
@@ -406,7 +473,7 @@ class Game {
             offset = Math.random() * Util.randomChoice([-0.8, 0.8])
             z = Math.floor(Math.random() * this.track.segments.length) * this.track.segmentLength
             sprite = this.sprites.player
-            speed = this.maxSpeed * 0.7
+            speed = this.maxSpeed * Util.randomFloat(0.5, 0.9)
             car = {
                 offset,
                 z,

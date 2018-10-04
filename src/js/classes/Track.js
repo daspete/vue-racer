@@ -109,6 +109,14 @@ class Track {
         this.AddRoad(length, length, length, 0, -2);
     }
 
+    AddSprite(n, sprite, offset, offsetX){
+        this.segments[n].sprites.push({
+            source: sprite,
+            offset,
+            offsetX
+        })
+    }
+
     AddDownhillToEnd(length) {
         length = length || 200;
 
